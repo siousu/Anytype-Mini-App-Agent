@@ -1,0 +1,502 @@
+<script src="./react.js"></script>
+<script src="./react-dom.js"></script>
+<script src="./useAnytypeState.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --app-height: 720px;
+    --bg: #04100a;
+    --neon: #36e26b;
+    --accent: #1f8f4a;
+    --line: rgba(255,255,255,.09);
+    --dim: #9fb6a8;
+    --text: #eef7f0;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  html, body { height: 100%; }
+  body {
+    height: var(--app-height);
+    background: radial-gradient(circle at 50% 0%, #0c2c1c 0%, var(--bg) 70%);
+    color: var(--text); font-family: var(--font);
+    overflow: hidden; user-select: none; -webkit-font-smoothing: antialiased;
+  }
+  #app, #root { height: var(--app-height); }
+
+  .layout {
+    height: 100%; display: flex; gap: 16px; padding: 16px;
+    align-items: stretch; justify-content: center; overflow: auto;
+  }
+  .col-center {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; flex-shrink: 0;
+  }
+  h1.title {
+    color: var(--neon); letter-spacing: 6px; margin: 0; font-size: 34px; font-weight: 900;
+    text-shadow: 0 0 18px rgba(54,226,107,.5);
+  }
+  .stage {
+    background: #02160d; border: 3px solid var(--accent); border-radius: 16px;
+    box-shadow: 0 0 0 3px #06210f, 0 18px 50px rgba(0,0,0,.6),
+                inset 0 0 40px rgba(54,226,107,.10);
+    padding: 10px;
+  }
+  canvas#board { display: block; border-radius: 8px; }
+
+  /* ---------- side panels ---------- */
+  .panel {
+    width: 240px; flex-shrink: 0; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, rgba(20,46,32,.6), rgba(10,24,16,.45));
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    backdrop-filter: blur(10px);
+  }
+  .panel.right { width: 280px; }
+  .panel h2 {
+    font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--dim); margin: 0 0 12px; font-weight: 700;
+  }
+  .field-label { font-size: 12px; color: var(--dim); margin-bottom: 6px; }
+  .name-input {
+    width: 100%; background: rgba(0,0,0,.3); border: 1px solid var(--line);
+    border-radius: 10px; color: var(--text); padding: 11px 13px; font-size: 15px;
+    outline: none; font-family: var(--font);
+  }
+  .name-input:focus { border-color: var(--neon); box-shadow: 0 0 0 3px rgba(54,226,107,.2); }
+  .start-btn {
+    margin-top: 12px; width: 100%; border: none; cursor: pointer; border-radius: 12px;
+    padding: 13px; font-size: 16px; font-weight: 800; letter-spacing: .5px; color: #03200f;
+    background: linear-gradient(135deg, #5dff8b, #2bd06a);
+    box-shadow: 0 6px 18px rgba(54,226,107,.35); transition: transform .1s, filter .12s;
+  }
+  .start-btn:hover { filter: brightness(1.06); }
+  .start-btn:active { transform: scale(.97); }
+  .stat {
+    margin-top: 14px; display: flex; gap: 10px;
+  }
+  .stat .box {
+    flex: 1; padding: 10px; border-radius: 12px; text-align: center;
+    background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  }
+  .stat .box .l { font-size: 11px; color: #9fb6a8 !important; -webkit-text-fill-color: #9fb6a8; }
+  .stat .box .v { font-size: 22px; font-weight: 800; color: #36e26b !important; -webkit-text-fill-color: #36e26b; font-variant-numeric: tabular-nums; }
+  .legend {
+    margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 9px; font-size: 12px; color: var(--dim);
+  }
+  .legend .k { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+  kbd {
+    background: #163024; border: 1px solid #2c5740; border-bottom-width: 2px;
+    border-radius: 6px; padding: 2px 6px; font-size: 11px; color: #fff;
+    font-family: ui-monospace, Menlo, monospace; flex-shrink: 0;
+  }
+
+  /* ---------- high-score list (hardened colors, like the Pac-Man app) ---------- */
+  .scores { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+  .score-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  }
+  .score-row.top { background: linear-gradient(135deg, rgba(54,226,107,.14), rgba(31,143,74,.05)); border-color: rgba(54,226,107,.25); }
+  .score-row.fresh { animation: flash 1.6s ease; }
+  @keyframes flash {
+    0%, 15% { box-shadow: 0 0 0 2px rgba(54,226,107,.85); border-color: rgba(54,226,107,.85); }
+    100%    { box-shadow: 0 0 0 0 rgba(54,226,107,0); }
+  }
+  .rank { width: 26px; text-align: center; font-weight: 800; font-size: 14px;
+    color: #9fb6a8 !important; -webkit-text-fill-color: #9fb6a8; }
+  .who { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 600; font-size: 14px;
+    color: #eef7f0 !important; -webkit-text-fill-color: #eef7f0; }
+  .pts { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums;
+    color: #36e26b !important; -webkit-text-fill-color: #36e26b; }
+  .score-row.cheated { background: rgba(255,84,112,.08); border-color: rgba(255,84,112,.35); }
+  .score-row.cheated .pts { color: #ff8a9c !important; -webkit-text-fill-color: #ff8a9c; }
+  .cheat {
+    margin-left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+    color: #ff8a9c !important; -webkit-text-fill-color: #ff8a9c;
+    background: rgba(255,84,112,.16); border: 1px solid rgba(255,84,112,.45);
+    border-radius: 6px; padding: 1px 6px; flex-shrink: 0;
+  }
+  .empty-s { color: var(--dim); font-size: 13px; text-align: center; padding: 30px 10px; line-height: 1.5; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 6px; }
+</style>
+<div id="app"></div>
+<script>
+"use strict";
+(function () {
+  var h = React.createElement;
+  var NAME_KEY = "snake_player_name";
+  var GRID = 20;            // 20 x 20 board
+  var SIDE = 420;           // board size in CSS px
+  var BASE_MS = 140;        // starting tick interval
+  var MIN_MS = 70;
+
+  // ---- lightweight tamper check ----
+  // Deters casual cheating only: the salt lives in this file, so anyone reading
+  // the source can forge a valid signature. It just catches naive edits where
+  // someone changes the score in the state without recomputing the hash.
+  var SIG_SALT = "snake.v1.4f9a2c";
+  function cyrb53(str, seed) {
+    var h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (var i = 0, ch; i < str.length; i++) {
+      ch = str.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+  }
+  function makeSig(e) {
+    return cyrb53([e.name, e.score, e.ts, e.id, SIG_SALT].join("|"), 0x5eed);
+  }
+
+  function loadName() { try { return localStorage.getItem(NAME_KEY) || ""; } catch (e) { return ""; } }
+  function saveName(n) { try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+
+  function App() {
+    var ps = useAnytypeState({ scores: [] });
+    var data = ps[0], setData = ps[1];
+
+    var ns = React.useState(loadName());  var name = ns[0],    setName = ns[1];
+    var rs = React.useState(false);       var started = rs[0], setStarted = rs[1];
+    var es = React.useState(null);        var result = es[0],  setResult = es[1];
+    var sc = React.useState(0);           var score = sc[0],   setScore = sc[1];
+
+    // game refs
+    var canvasRef = React.useRef(null);
+    var snakeRef  = React.useRef([]);
+    var dirRef    = React.useRef({ dx: 1, dy: 0 });
+    var pendRef   = React.useRef(null);
+    var foodRef   = React.useRef({ x: 5, y: 5 });
+    var scoreRef  = React.useRef(0);
+    var runRef    = React.useRef(false);
+    var pauseRef  = React.useRef(false);
+    var overRef   = React.useRef(false);
+    var eatRef    = React.useRef(null);   // {x,y,ts} for the eat ripple
+    var loopRef   = React.useRef(0);
+    var rafRef    = React.useRef(0);
+    var dprRef    = React.useRef(1);
+
+    // host refs
+    var nameRef      = React.useRef((loadName() || "").trim() || "Anonymous");
+    var freshNameRef = React.useRef(null);
+    var goRef        = React.useRef(function () {});
+
+    // ---- game-over -> shared high-score state (rebuilt each render for fresh setData) ----
+    goRef.current = function (finalScore) {
+      var nm = nameRef.current || "Anonymous";
+      var entry = {
+        name: nm, score: (typeof finalScore === "number" ? finalScore : 0),
+        ts: Date.now(), id: Date.now() + "_" + Math.random().toString(36).slice(2)
+      };
+      entry.sig = makeSig(entry);   // tamper-evidence signature
+      freshNameRef.current = nm;
+      setData(function (prev) { return { scores: (prev.scores || []).concat([entry]) }; });
+      setResult({ name: nm, score: entry.score });
+    };
+
+    // ---------- helpers ----------
+    function setLoop(ms) {
+      if (loopRef.current) clearInterval(loopRef.current);
+      loopRef.current = setInterval(tick, ms);
+    }
+    function speedFor(s) { return Math.max(MIN_MS, BASE_MS - Math.floor(s / 50) * 8); }
+
+    function placeFood() {
+      var occ = {};
+      snakeRef.current.forEach(function (s) { occ[s.x + "," + s.y] = 1; });
+      var free = [];
+      for (var y = 0; y < GRID; y++) for (var x = 0; x < GRID; x++) {
+        if (!occ[x + "," + y]) free.push({ x: x, y: y });
+      }
+      if (!free.length) { endGame(); return; }
+      foodRef.current = free[(Math.random() * free.length) | 0];
+    }
+
+    function tick() {
+      if (!runRef.current || pauseRef.current) return;
+      if (pendRef.current) { dirRef.current = pendRef.current; pendRef.current = null; }
+      var d = dirRef.current, snake = snakeRef.current;
+      var head = { x: snake[0].x + d.dx, y: snake[0].y + d.dy };
+
+      // wall collision
+      if (head.x < 0 || head.y < 0 || head.x >= GRID || head.y >= GRID) { endGame(); return; }
+      // self collision
+      for (var i = 0; i < snake.length; i++) {
+        if (snake[i].x === head.x && snake[i].y === head.y) { endGame(); return; }
+      }
+
+      snake.unshift(head);
+      if (head.x === foodRef.current.x && head.y === foodRef.current.y) {
+        scoreRef.current += 10;
+        setScore(scoreRef.current);
+        eatRef.current = { x: head.x, y: head.y, ts: performance.now() };
+        placeFood();
+        var ms = speedFor(scoreRef.current);
+        setLoop(ms);   // gradually speed up
+      } else {
+        snake.pop();
+      }
+    }
+
+    function endGame() {
+      runRef.current = false;
+      overRef.current = true;
+      if (loopRef.current) { clearInterval(loopRef.current); loopRef.current = 0; }
+      setStarted(false);
+      goRef.current(scoreRef.current);
+    }
+
+    function start() {
+      var nm = (name || "").trim() || "Anonymous";
+      nameRef.current = nm; saveName(nm);
+      var cy = (GRID / 2) | 0, cx = (GRID / 2) | 0;
+      snakeRef.current = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }];
+      dirRef.current = { dx: 1, dy: 0 }; pendRef.current = null;
+      scoreRef.current = 0; setScore(0);
+      eatRef.current = null; overRef.current = false; pauseRef.current = false;
+      placeFood();
+      runRef.current = true; setStarted(true); setResult(null);
+      setLoop(BASE_MS);
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    }
+
+    function onNameKey(e) { if (e.key === "Enter") start(); }
+    function onName(e) {
+      var v = e.target.value; setName(v);
+      nameRef.current = v.trim() || "Anonymous";
+    }
+
+    // ---------- keyboard ----------
+    React.useEffect(function () {
+      function tryTurn(dx, dy) {
+        var cur = pendRef.current || dirRef.current;
+        if (dx === -cur.dx && dy === -cur.dy) return; // no instant reverse
+        pendRef.current = { dx: dx, dy: dy };
+      }
+      function onKey(e) {
+        var ae = document.activeElement;
+        if (ae && /^(input|textarea|select)$/i.test(ae.tagName)) return; // typing the name
+        var k = e.key.toLowerCase();
+        if (k === "arrowup" || k === "w")    { e.preventDefault(); tryTurn(0, -1); }
+        else if (k === "arrowdown" || k === "s")  { e.preventDefault(); tryTurn(0, 1); }
+        else if (k === "arrowleft" || k === "a")  { e.preventDefault(); tryTurn(-1, 0); }
+        else if (k === "arrowright" || k === "d") { e.preventDefault(); tryTurn(1, 0); }
+        else if (k === "p" && runRef.current) { pauseRef.current = !pauseRef.current; }
+      }
+      window.addEventListener("keydown", onKey, true);
+      return function () { window.removeEventListener("keydown", onKey, true); };
+    }, []);
+
+    // ---------- rendering ----------
+    function draw(now) {
+      var canvas = canvasRef.current; if (!canvas) return;
+      var ctx = canvas.getContext("2d");
+      var dpr = dprRef.current, cell = SIDE / GRID;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // backdrop
+      ctx.fillStyle = "#02140c";
+      ctx.fillRect(0, 0, SIDE, SIDE);
+      // grid
+      ctx.strokeStyle = "rgba(255,255,255,.04)"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (var i = 0; i <= GRID; i++) {
+        var p = Math.round(i * cell) + 0.5;
+        ctx.moveTo(p, 0); ctx.lineTo(p, SIDE);
+        ctx.moveTo(0, p); ctx.lineTo(SIDE, p);
+      }
+      ctx.stroke();
+
+      // food (pulsing)
+      var f = foodRef.current;
+      var pulse = 0.5 + 0.5 * Math.sin(now / 220);
+      var fr = cell * (0.28 + 0.06 * pulse);
+      var fx = f.x * cell + cell / 2, fy = f.y * cell + cell / 2;
+      ctx.fillStyle = "#ff5470";
+      ctx.shadowColor = "rgba(255,84,112,.8)"; ctx.shadowBlur = 12 + 8 * pulse;
+      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // eat ripple
+      var er = eatRef.current;
+      if (er) {
+        var rp = (now - er.ts) / 380;
+        if (rp >= 0 && rp < 1) {
+          ctx.globalAlpha = (1 - rp) * 0.6;
+          ctx.strokeStyle = "#ff5470"; ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(er.x * cell + cell / 2, er.y * cell + cell / 2, cell * 0.4 + cell * rp, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // snake (rounded segments, head -> tail gradient)
+      var snake = snakeRef.current, n = snake.length;
+      for (var s = n - 1; s >= 0; s--) {
+        var seg = snake[s];
+        var t = n > 1 ? s / (n - 1) : 0;             // 0 head .. 1 tail
+        var g = Math.round(226 - 90 * t);            // fade green
+        ctx.fillStyle = "rgb(" + Math.round(54 + 30 * t) + "," + g + "," + Math.round(107 - 30 * t) + ")";
+        if (s === 0) { ctx.shadowColor = "rgba(54,226,107,.7)"; ctx.shadowBlur = 12; }
+        roundRect(ctx, seg.x * cell + 1.5, seg.y * cell + 1.5, cell - 3, cell - 3, Math.min(7, cell / 3));
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      // eyes on the head
+      if (n) {
+        var hseg = snake[0], d = dirRef.current;
+        var hx = hseg.x * cell + cell / 2, hy = hseg.y * cell + cell / 2;
+        var off = cell * 0.18, eo = cell * 0.16;
+        ctx.fillStyle = "#04140c";
+        ctx.beginPath();
+        ctx.arc(hx + d.dx * off - d.dy * eo, hy + d.dy * off - d.dx * eo, cell * 0.09, 0, Math.PI * 2);
+        ctx.arc(hx + d.dx * off + d.dy * eo, hy + d.dy * off + d.dx * eo, cell * 0.09, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // overlays
+      if (!runRef.current) {
+        ctx.fillStyle = "rgba(2,16,10,.62)";
+        ctx.fillRect(0, 0, SIDE, SIDE);
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(54,226,107,.6)"; ctx.shadowBlur = 16;
+        ctx.fillStyle = "#36e26b";
+        ctx.font = "800 30px " + bodyFont();
+        ctx.fillText(overRef.current ? "GAME OVER" : "SNAKE", SIDE / 2, SIDE / 2 - 14);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#cfe9d8";
+        ctx.font = "600 15px " + bodyFont();
+        ctx.fillText(overRef.current ? ("Score " + scoreRef.current + " · click Start") : "Click Start to play",
+                     SIDE / 2, SIDE / 2 + 18);
+      } else if (pauseRef.current) {
+        ctx.fillStyle = "rgba(2,16,10,.55)"; ctx.fillRect(0, 0, SIDE, SIDE);
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillStyle = "#36e26b"; ctx.font = "800 26px " + bodyFont();
+        ctx.fillText("PAUSED", SIDE / 2, SIDE / 2);
+      }
+    }
+
+    function bodyFont() { return 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // continuous draw loop (cheap; keeps food pulsing + instant rendering)
+    React.useEffect(function () {
+      var canvas = canvasRef.current; if (!canvas) return;
+      var dpr = window.devicePixelRatio || 1;
+      dprRef.current = dpr;
+      canvas.style.width = SIDE + "px"; canvas.style.height = SIDE + "px";
+      canvas.width = Math.round(SIDE * dpr); canvas.height = Math.round(SIDE * dpr);
+
+      // initial idle snake so the board isn't empty before the first game
+      if (!snakeRef.current.length) {
+        var cy = (GRID / 2) | 0, cx = (GRID / 2) | 0;
+        snakeRef.current = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }];
+        placeFood();
+      }
+      function frame(now) { draw(now); rafRef.current = requestAnimationFrame(frame); }
+      rafRef.current = requestAnimationFrame(frame);
+      return function () {
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        if (loopRef.current) clearInterval(loopRef.current);
+      };
+    }, []);
+
+    // ---------- shared high scores: best legit score per name; flag tampering ----------
+    var raw = (data && Array.isArray(data.scores)) ? data.scores : [];
+    var groups = {};
+    raw.forEach(function (e) {
+      if (!e || typeof e !== "object") return;
+      var nm = (typeof e.name === "string" && e.name.trim()) ? e.name : "Anonymous";
+      var v = Number(e.score); if (!isFinite(v)) v = 0;
+      // tampered = a signature exists but no longer matches the entry's fields.
+      // entries without a signature are treated as legit/legacy (predate this feature).
+      var tampered = (e.sig != null) && (e.sig !== makeSig(e));
+      var g = groups[nm] || (groups[nm] = { name: nm, score: 0, hasLegit: false, cheated: false, ts: 0 });
+      if ((Number(e.ts) || 0) > g.ts) g.ts = Number(e.ts) || 0;
+      if (tampered) {
+        g.cheated = true;
+      } else if (!g.hasLegit || v > g.score) {
+        g.score = v; g.hasLegit = true;
+      }
+    });
+    var board = Object.keys(groups).map(function (k) { return groups[k]; })
+      .sort(function (a, b) {
+        if (a.cheated !== b.cheated) return a.cheated ? 1 : -1;   // cheaters to the bottom
+        return (b.score - a.score) || (a.ts - b.ts);
+      });
+
+    var meKey = (name || "").trim() || "Anonymous";
+    var myBest = (groups[meKey] && groups[meKey].hasLegit) ? groups[meKey].score : 0;
+
+    var rows = board.map(function (s, i) {
+      var top = !s.cheated && i < 3;
+      var medal = s.cheated ? "🚫" : (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : ("#" + (i + 1)));
+      var cls = "score-row" + (top ? " top" : "") + (s.cheated ? " cheated" : "") +
+                (s.name === freshNameRef.current && !s.cheated ? " fresh" : "");
+      return h("div", { className: cls, key: s.name + "#" + i },
+        h("div", { className: "rank" }, medal),
+        h("div", { className: "who", title: s.name },
+          String(s.name),
+          s.cheated ? h("span", { className: "cheat" }, "cheated") : null
+        ),
+        h("div", { className: "pts" }, String(s.score))
+      );
+    });
+
+    return h("div", { className: "layout" },
+      // LEFT
+      h("div", { className: "panel left" },
+        h("h2", null, "Player"),
+        h("div", { className: "field-label" }, "Your name"),
+        h("input", {
+          className: "name-input", type: "text", placeholder: "Enter your name…",
+          value: name, maxLength: 20, spellCheck: false,
+          onChange: onName, onKeyDown: onNameKey
+        }),
+        h("button", { className: "start-btn", onClick: start }, started ? "↻ Restart" : "▶ Start"),
+        h("div", { className: "stat" },
+          h("div", { className: "box" }, h("div", { className: "l" }, "Score"), h("div", { className: "v" }, score)),
+          h("div", { className: "box" }, h("div", { className: "l" }, "Your best"), h("div", { className: "v" }, myBest))
+        ),
+        result ? h("div", { className: "stat" },
+          h("div", { className: "box", style: { flex: 1 } },
+            h("div", { className: "l" }, "Game over · " + result.name),
+            h("div", { className: "v" }, result.score))
+        ) : null,
+        h("div", { className: "legend" },
+          h("div", { className: "k" }, h("kbd", null, "←"), h("kbd", null, "↑"), h("kbd", null, "↓"), h("kbd", null, "→"), " Move"),
+          h("div", { className: "k" }, "or ", h("kbd", null, "W"), h("kbd", null, "A"), h("kbd", null, "S"), h("kbd", null, "D")),
+          h("div", { className: "k" }, h("kbd", null, "P"), " Pause"),
+          h("div", { className: "k" }, "Eat the red dots — avoid walls & yourself")
+        )
+      ),
+      // CENTER
+      h("div", { className: "col-center" },
+        h("h1", { className: "title" }, "SNAKE"),
+        h("div", { className: "stage" }, h("canvas", { id: "board", ref: canvasRef }))
+      ),
+      // RIGHT
+      h("div", { className: "panel right" },
+        h("h2", null, "🏆 High Scores"),
+        board.length
+          ? h("div", { className: "scores" }, rows)
+          : h("div", { className: "empty-s" }, "No scores yet —", h("br"), "play a round to get on the board!")
+      )
+    );
+  }
+
+  ReactDOM.render(h(App, null), document.getElementById("app"));
+})();
+</script>

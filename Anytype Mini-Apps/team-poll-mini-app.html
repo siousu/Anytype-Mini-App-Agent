@@ -1,0 +1,558 @@
+<script src="./react.js"></script>
+<script src="./react-dom.js"></script>
+<script src="./useAnytypeState.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Team Poll</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0c0c16;
+    --panel: #15151f;
+    --accent: #7c6cff;       /* indigo / violet */
+    --accent-2: #a78bfa;
+    --line: rgba(255,255,255,.08);
+    --dim: #9aa0b8;
+    --text: #eef0f8;
+    --crown: #ffd166;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  /* explicit height chain — the wrapper sets #root{font-size:0} */
+  html, body, #app, #root { height: 100%; }
+  body {
+    background: radial-gradient(circle at 50% -10%, #1b1738 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;                 /* guard against inherited font-size:0 */
+    -webkit-font-smoothing: antialiased;
+    overflow: auto;
+    user-select: none;
+  }
+
+  .wrap {
+    max-width: 540px; margin: 0 auto; min-height: 100%;
+    padding: 22px 18px 28px; display: flex; flex-direction: column; gap: 16px;
+  }
+
+  /* ---------- header ---------- */
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .dot {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 6px 18px rgba(124,108,255,.45);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .brand h1 {
+    font-size: 18px; font-weight: 800; letter-spacing: .3px;
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+  }
+  .you {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--line);
+    border-radius: 11px; padding: 6px 8px 6px 11px;
+  }
+  .you label {
+    font-size: 11px; letter-spacing: .5px; text-transform: uppercase;
+    color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8; font-weight: 700;
+  }
+  .you input {
+    width: 110px; background: transparent; border: none; outline: none;
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+    font-family: var(--font); font-size: 14px; font-weight: 600;
+  }
+
+  /* ---------- card ---------- */
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.012));
+    border: 1px solid var(--line); border-radius: 18px;
+    padding: 20px; box-shadow: 0 22px 60px rgba(0,0,0,.45);
+    position: relative; overflow: hidden;
+  }
+
+  .empty {
+    text-align: center; padding: 26px 10px; color: var(--dim);
+  }
+  .empty .big { font-size: 40px; margin-bottom: 10px; }
+  .empty .t1 {
+    font-size: 16px; font-weight: 700; margin-bottom: 6px;
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+  }
+  .empty .t2 { font-size: 13px; color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8; }
+
+  /* ---------- vote mode ---------- */
+  .q {
+    font-size: 20px; font-weight: 800; line-height: 1.3; margin-bottom: 4px;
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+  }
+  .q-sub {
+    font-size: 12px; color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8;
+    margin-bottom: 16px;
+  }
+
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt {
+    position: relative; width: 100%; text-align: left; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 13px; overflow: hidden;
+    background: rgba(255,255,255,.03); padding: 0;
+    transition: border-color .15s, transform .08s, box-shadow .15s;
+  }
+  .opt:hover { border-color: rgba(124,108,255,.55); }
+  .opt:active { transform: scale(.992); }
+  .opt.mine { border-color: rgba(124,108,255,.85); box-shadow: 0 0 0 1px rgba(124,108,255,.5) inset; }
+  .opt.pulse { animation: pulse 1.1s ease; }
+  @keyframes pulse {
+    0%, 12% { box-shadow: 0 0 0 2px rgba(124,108,255,.9); }
+    100%    { box-shadow: 0 0 0 0 rgba(124,108,255,0); }
+  }
+  /* the animated fill bar */
+  .opt .bar {
+    position: absolute; inset: 0; width: 0%;
+    background: linear-gradient(90deg, rgba(124,108,255,.42), rgba(167,139,250,.26));
+    transition: width .65s cubic-bezier(.22,.61,.36,1);
+    z-index: 0;
+  }
+  .opt.lead .bar {
+    background: linear-gradient(90deg, rgba(124,108,255,.62), rgba(167,139,250,.4));
+  }
+  .opt .row {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 15px; min-height: 50px;
+  }
+  .opt .label {
+    flex: 1; min-width: 0; font-size: 15px; font-weight: 600; word-break: break-word;
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+  }
+  .opt .crown { font-size: 15px; flex-shrink: 0; }
+  .opt .check { font-size: 13px; flex-shrink: 0; color: var(--accent-2); }
+  .opt .pct {
+    font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; flex-shrink: 0;
+    color: #c9c4ff !important; -webkit-text-fill-color: #c9c4ff;
+  }
+  .opt .cnt {
+    font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; min-width: 54px; text-align: right;
+    color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8;
+  }
+
+  .vote-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 16px; gap: 12px;
+  }
+  .total {
+    font-size: 13px; color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8;
+  }
+  .total b { color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8; font-variant-numeric: tabular-nums; }
+
+  /* ---------- create mode ---------- */
+  .create h2 {
+    font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 800;
+    color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8; margin-bottom: 12px;
+  }
+  .input {
+    width: 100%; background: rgba(0,0,0,.28); border: 1px solid var(--line);
+    border-radius: 11px; padding: 12px 13px; font-size: 15px; font-family: var(--font);
+    outline: none; color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+  }
+  .input::placeholder { color: #6b7090; -webkit-text-fill-color: #6b7090; }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,108,255,.22); }
+  .q-input { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+
+  .opt-rows { display: flex; flex-direction: column; gap: 9px; margin-bottom: 6px; }
+  .opt-row { display: flex; align-items: center; gap: 8px; }
+  .opt-row .input { flex: 1; }
+  .icon-btn {
+    width: 38px; height: 42px; flex-shrink: 0; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.04);
+    color: #c7ccea !important; -webkit-text-fill-color: #c7ccea; font-size: 18px; line-height: 1;
+    transition: background .12s, border-color .12s;
+  }
+  .icon-btn:hover { background: rgba(255,84,112,.14); border-color: rgba(255,84,112,.4); color: #ff8a9c !important; -webkit-text-fill-color: #ff8a9c; }
+  .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .add-opt {
+    margin-top: 10px; width: 100%; cursor: pointer;
+    border: 1px dashed rgba(124,108,255,.5); border-radius: 11px; background: transparent;
+    padding: 11px; font-size: 14px; font-weight: 700;
+    color: #b6acff !important; -webkit-text-fill-color: #b6acff;
+    transition: background .12s;
+  }
+  .add-opt:hover { background: rgba(124,108,255,.1); }
+  .add-opt:disabled { opacity: .4; cursor: not-allowed; }
+
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
+  .btn {
+    cursor: pointer; border: none; border-radius: 12px; padding: 13px 16px;
+    font-size: 15px; font-weight: 800; letter-spacing: .2px; font-family: var(--font);
+    transition: transform .08s, filter .12s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary {
+    flex: 1; color: #0f0a26 !important; -webkit-text-fill-color: #0f0a26;
+    background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    box-shadow: 0 8px 22px rgba(124,108,255,.4);
+  }
+  .btn-primary:hover { filter: brightness(1.06); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  .btn-ghost {
+    background: rgba(255,255,255,.05); border: 1px solid var(--line);
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,.09); }
+
+  /* small text buttons under the card */
+  .underbar { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .confirm-q { margin-right: auto; font-size: 13px; font-weight: 600;
+    color: #ff8a9c !important; -webkit-text-fill-color: #ff8a9c; }
+  .link-btn {
+    cursor: pointer; background: transparent; border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; font-family: var(--font);
+    color: #c7ccea !important; -webkit-text-fill-color: #c7ccea;
+    transition: background .12s, border-color .12s;
+  }
+  .link-btn:hover { background: rgba(255,255,255,.06); }
+  .link-btn.danger:hover { background: rgba(255,84,112,.14); border-color: rgba(255,84,112,.4); color: #ff8a9c !important; -webkit-text-fill-color: #ff8a9c; }
+
+  /* confetti / ripple burst */
+  .burst { position: fixed; pointer-events: none; z-index: 50; }
+  .burst i {
+    position: absolute; width: 7px; height: 7px; border-radius: 2px; left: 0; top: 0;
+    animation: fly .6s ease-out forwards;
+  }
+  @keyframes fly {
+    from { transform: translate(0,0) scale(1); opacity: 1; }
+    to   { transform: translate(var(--tx), var(--ty)) scale(.3); opacity: 0; }
+  }
+
+  .hint { text-align: center; font-size: 11px; color: #6b7090 !important; -webkit-text-fill-color: #6b7090; }
+  ::-webkit-scrollbar { width: 9px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 6px; }
+</style>
+<div id="app"></div>
+<script>
+"use strict";
+(function () {
+  var h = React.createElement;
+
+  // localStorage is shared per origin across ALL mini-apps -> namespace uniquely.
+  var NAME_KEY = "teampoll_voter_name";
+  function loadName() { try { return localStorage.getItem(NAME_KEY) || ""; } catch (e) { return ""; } }
+  function saveName(n) { try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
+  function uid() { return Date.now() + "_" + Math.random().toString(36).slice(2); }
+
+  // ---- Web Audio: synthesized "pop" on a successful vote ----
+  var audioCtx = null;
+  function pop() {
+    try {
+      if (!audioCtx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();   // resume on gesture
+      var t = audioCtx.currentTime;
+      var o = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(420, t);
+      o.frequency.exponentialRampToValueAtTime(880, t + 0.09);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.24);
+    } catch (e) {}
+  }
+
+  // ---- confetti / ripple burst at a click point ----
+  function burst(x, y) {
+    try {
+      var colors = ["#7c6cff", "#a78bfa", "#ffd166", "#4ade80", "#f472b6"];
+      var box = document.createElement("div");
+      box.className = "burst";
+      box.style.left = x + "px"; box.style.top = y + "px";
+      for (var i = 0; i < 14; i++) {
+        var p = document.createElement("i");
+        var ang = (Math.PI * 2 * i) / 14 + Math.random() * 0.5;
+        var dist = 32 + Math.random() * 34;
+        p.style.background = colors[(Math.random() * colors.length) | 0];
+        p.style.setProperty("--tx", (Math.cos(ang) * dist).toFixed(1) + "px");
+        p.style.setProperty("--ty", (Math.sin(ang) * dist).toFixed(1) + "px");
+        box.appendChild(p);
+      }
+      document.body.appendChild(box);
+      setTimeout(function () { box.remove(); }, 650);
+    } catch (e) {}
+  }
+
+  // ---- reduce the append-only op-log into a view ----
+  // ops: {t:"poll", question, options:[...], id, ts}
+  //      {t:"vote", pollId, option, voter, id, ts}   (one per voter per poll; latest wins)
+  //      {t:"reset", id, ts}
+  function reduceOps(ops) {
+    var poll = null;       // latest poll op after the latest reset
+    var resetTs = 0;
+    var i;
+    for (i = 0; i < ops.length; i++) {
+      var op = ops[i];
+      if (!op || !op.t) continue;
+      if (op.t === "reset") { resetTs = Math.max(resetTs, op.ts || 0); }
+    }
+    for (i = 0; i < ops.length; i++) {
+      var p = ops[i];
+      if (p && p.t === "poll" && (p.ts || 0) >= resetTs) {
+        if (!poll || (p.ts || 0) >= (poll.ts || 0)) poll = p;
+      }
+    }
+    if (!poll) return { poll: null, counts: {}, total: 0, byVoter: {} };
+
+    // one vote per voter for THIS poll; a later op by the same voter replaces the earlier.
+    var latestByVoter = {};   // voter -> {option, ts}
+    for (i = 0; i < ops.length; i++) {
+      var v = ops[i];
+      if (!v || v.t !== "vote") continue;
+      if (v.pollId !== poll.id) continue;
+      if (poll.options.indexOf(v.option) < 0) continue;   // ignore stale options
+      var key = v.voter || "Anonymous";
+      var prev = latestByVoter[key];
+      if (!prev || (v.ts || 0) >= (prev.ts || 0)) latestByVoter[key] = { option: v.option, ts: v.ts || 0 };
+    }
+    var counts = {}, total = 0, byVoter = {};
+    poll.options.forEach(function (o) { counts[o] = 0; });
+    Object.keys(latestByVoter).forEach(function (voter) {
+      var o = latestByVoter[voter].option;
+      counts[o] = (counts[o] || 0) + 1;
+      total++;
+      byVoter[voter] = o;
+    });
+    return { poll: poll, counts: counts, total: total, byVoter: byVoter };
+  }
+
+  function App() {
+    var ps = useAnytypeState({ ops: [] });
+    var data = ps[0], setData = ps[1];
+
+    var ns = React.useState(loadName());      var name = ns[0],      setName = ns[1];
+    var ms = React.useState(false);           var editing = ms[0],   setEditing = ms[1];
+    var qs = React.useState("");              var qDraft = qs[0],    setQDraft = qs[1];
+    var os = React.useState(["", ""]);        var optDraft = os[0],  setOptDraft = os[1];
+    var fs = React.useState(null);            var pulseOpt = fs[0],  setPulseOpt = fs[1];
+    var rcs = React.useState(false);          var confirmReset = rcs[0], setConfirmReset = rcs[1];
+
+    // identity ref always reflects the current name
+    var nameRef = React.useRef((loadName() || "").trim() || "Anonymous");
+
+    // ---- local pending mirror: just-cast ops shown instantly, deduped by id ----
+    var pendingRef = React.useRef([]);
+
+    // ---- fresh-handler ref: rebuilt every render so it closes over the live setData ----
+    var castRef = React.useRef(function () {});
+    var startRef = React.useRef(function () {});
+    var resetRef = React.useRef(function () {});
+
+    // merge synced ops + pending (dedupe by id) BEFORE reducing
+    var syncedOps = (data && Array.isArray(data.ops)) ? data.ops : [];
+    var have = {};
+    syncedOps.forEach(function (o) { if (o && o.id) have[o.id] = 1; });
+    pendingRef.current = pendingRef.current.filter(function (o) { return !have[o.id]; });
+    var allOps = syncedOps.concat(pendingRef.current);
+
+    var view = reduceOps(allOps);
+    var poll = view.poll;
+    var myVote = poll ? view.byVoter[nameRef.current] : null;
+
+    // leading option(s)
+    var lead = null, leadCount = -1;
+    if (poll) {
+      poll.options.forEach(function (o) {
+        if (view.counts[o] > leadCount) { leadCount = view.counts[o]; lead = o; }
+      });
+      if (leadCount <= 0) lead = null;   // no crown until at least one vote
+    }
+
+    function pushOp(op) {
+      pendingRef.current = pendingRef.current.concat([op]);
+      setData(function (prev) {
+        var arr = (prev && Array.isArray(prev.ops)) ? prev.ops : [];
+        return { ops: arr.concat([op]) };
+      });
+    }
+
+    castRef.current = function (option, ev) {
+      if (!poll) return;
+      var voter = nameRef.current || "Anonymous";
+      if (view.byVoter[voter] === option) return;  // already on this option, no-op
+      var op = { t: "vote", pollId: poll.id, option: option, voter: voter, id: uid(), ts: Date.now() };
+      pushOp(op);
+      pop();
+      setPulseOpt(option);
+      setTimeout(function () { setPulseOpt(function (cur) { return cur === option ? null : cur; }); }, 1100);
+      if (ev) burst(ev.clientX, ev.clientY);
+    };
+
+    startRef.current = function () {
+      var q = (qDraft || "").trim();
+      var opts = optDraft.map(function (s) { return (s || "").trim(); }).filter(function (s) { return s.length; });
+      if (!q || opts.length < 2) return;
+      // de-dup option labels (keep order)
+      var seen = {}, clean = [];
+      opts.forEach(function (o) { if (!seen[o.toLowerCase()]) { seen[o.toLowerCase()] = 1; clean.push(o); } });
+      if (clean.length < 2) return;
+      var op = { t: "poll", question: q, options: clean.slice(0, 6), id: uid(), ts: Date.now() };
+      pushOp(op);
+      setEditing(false);
+    };
+
+    resetRef.current = function () {
+      // NOTE: window.confirm()/alert()/prompt() are suppressed inside Anytype's
+      // sandboxed iframe (no 'allow-modals') — they silently no-op. So we use an
+      // in-app confirm step (setConfirmReset) instead of a native dialog.
+      pushOp({ t: "reset", id: uid(), ts: Date.now() });
+      setEditing(false); setConfirmReset(false);
+      setQDraft(""); setOptDraft(["", ""]);
+    };
+
+    function onName(e) {
+      var v = e.target.value;
+      setName(v);
+      nameRef.current = v.trim() || "Anonymous";
+      saveName(v);
+    }
+
+    function openCreate() {
+      if (poll) { setQDraft(poll.question); setOptDraft(poll.options.slice()); }
+      else { setQDraft(""); setOptDraft(["", ""]); }
+      setConfirmReset(false);
+      setEditing(true);
+    }
+
+    function setOptAt(i, val) {
+      setOptDraft(function (arr) { var c = arr.slice(); c[i] = val; return c; });
+    }
+    function addOpt() { setOptDraft(function (arr) { return arr.length >= 6 ? arr : arr.concat([""]); }); }
+    function removeOpt(i) { setOptDraft(function (arr) { return arr.length <= 2 ? arr : arr.filter(function (_, j) { return j !== i; }); }); }
+
+    // ===================== RENDER =====================
+    var header = h("div", { className: "head" },
+      h("div", { className: "brand" },
+        h("div", { className: "dot" }, "📊"),
+        h("h1", null, "Team Poll")
+      ),
+      h("div", { className: "you" },
+        h("label", null, "You"),
+        h("input", {
+          value: name, onChange: onName, placeholder: "Anonymous",
+          maxLength: 24, spellCheck: false,
+          onKeyDown: function (e) { if (e.key === "Enter") e.target.blur(); }
+        })
+      )
+    );
+
+    var body;
+
+    // ---------- CREATE MODE ----------
+    if (editing || !poll) {
+      var canStart = (qDraft || "").trim().length > 0 &&
+        optDraft.filter(function (s) { return (s || "").trim().length; }).length >= 2;
+
+      var rows = optDraft.map(function (val, i) {
+        return h("div", { className: "opt-row", key: "or" + i },
+          h("input", {
+            className: "input", value: val, placeholder: "Option " + (i + 1),
+            maxLength: 60, spellCheck: false,
+            onChange: function (e) { setOptAt(i, e.target.value); },
+            onKeyDown: function (e) {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (i === optDraft.length - 1 && optDraft.length < 6) addOpt();
+                else if (canStart) startRef.current();
+              }
+            }
+          }),
+          h("button", {
+            className: "icon-btn", title: "Remove option",
+            disabled: optDraft.length <= 2,
+            onClick: function () { removeOpt(i); }
+          }, "✕")
+        );
+      });
+
+      body = h("div", { className: "card create" },
+        h("h2", null, poll ? "Edit / New poll" : "Create a poll"),
+        h("input", {
+          className: "input q-input", value: qDraft, placeholder: "Ask a question…",
+          maxLength: 140, spellCheck: false,
+          onChange: function (e) { setQDraft(e.target.value); },
+          onKeyDown: function (e) { if (e.key === "Enter") e.preventDefault(); }
+        }),
+        h("div", { className: "opt-rows" }, rows),
+        h("button", { className: "add-opt", disabled: optDraft.length >= 6, onClick: addOpt },
+          optDraft.length >= 6 ? "Maximum 6 options" : "+ Add option"),
+        h("div", { className: "actions" },
+          h("button", { className: "btn btn-primary", disabled: !canStart, onClick: function () { startRef.current(); } },
+            poll ? "Replace poll" : "Start poll"),
+          poll ? h("button", { className: "btn btn-ghost", onClick: function () { setEditing(false); } }, "Cancel") : null
+        )
+      );
+    }
+
+    // ---------- VOTE MODE ----------
+    else {
+      var optEls = poll.options.map(function (o) {
+        var c = view.counts[o] || 0;
+        var pct = view.total ? Math.round((c / view.total) * 100) : 0;
+        var cls = "opt";
+        if (myVote === o) cls += " mine";
+        if (lead === o) cls += " lead";
+        if (pulseOpt === o) cls += " pulse";
+        return h("button", {
+          className: cls, key: "opt-" + o,
+          onClick: function (e) { castRef.current(o, e); }
+        },
+          h("div", { className: "bar", style: { width: pct + "%" } }),
+          h("div", { className: "row" },
+            (lead === o ? h("span", { className: "crown", title: "Leading" }, "👑") : null),
+            h("span", { className: "label" }, o),
+            (myVote === o ? h("span", { className: "check", title: "Your vote" }, "✓") : null),
+            h("span", { className: "pct" }, pct + "%"),
+            h("span", { className: "cnt" }, c + (c === 1 ? " vote" : " votes"))
+          )
+        );
+      });
+
+      body = h("div", { className: "card" },
+        h("div", { className: "q" }, poll.question),
+        h("div", { className: "q-sub" },
+          myVote ? ("You voted — tap another option to change your vote.")
+                 : ("Tap an option to cast your vote.")),
+        h("div", { className: "options" }, optEls),
+        h("div", { className: "vote-foot" },
+          h("div", { className: "total" }, h("b", null, String(view.total)), view.total === 1 ? " vote total" : " votes total")
+        )
+      );
+    }
+
+    var underbar = poll && !editing
+      ? h("div", { className: "underbar" },
+          confirmReset
+            ? [
+                h("span", { className: "confirm-q", key: "cq" }, "Reset poll & votes for everyone?"),
+                h("button", { className: "link-btn", key: "cc", onClick: function () { setConfirmReset(false); } }, "Cancel"),
+                h("button", { className: "link-btn danger", key: "cy", onClick: function () { resetRef.current(); } }, "Yes, reset")
+              ]
+            : [
+                h("button", { className: "link-btn", key: "edit", onClick: openCreate }, "Edit / New poll"),
+                h("button", { className: "link-btn danger", key: "reset", onClick: function () { setConfirmReset(true); } }, "Reset")
+              ]
+        )
+      : (poll ? null : h("div", { className: "hint" }, "Your name and votes sync live to everyone in this space."));
+
+    return h("div", { className: "wrap" }, header, body, underbar);
+  }
+
+  ReactDOM.createRoot(document.getElementById("app")).render(h(App));
+})();
+</script>
+</html>

@@ -1,0 +1,237 @@
+<script src="./react.js"></script>
+<script src="./react-dom.js"></script>
+<script src="./useAnytypeState.js"></script>
+<div id="app"></div>
+<script>
+(function() {
+  "use strict";
+  var h = React.createElement;
+
+  // --- Config ---
+  var TOP10_STOCKS = [
+    { symbol: "AAPL", name: "Apple" },
+    { symbol: "MSFT", name: "Microsoft" },
+    { symbol: "NVDA", name: "NVIDIA" },
+    { symbol: "AMZN", name: "Amazon" },
+    { symbol: "GOOGL", name: "Alphabet" },
+    { symbol: "META", name: "Meta" },
+    { symbol: "TSLA", name: "Tesla" },
+    { symbol: "AVGO", name: "Broadcom" },
+    { symbol: "BRK.B", name: "Berkshire B" },
+    { symbol: "JPM", name: "JPMorgan" }
+  ];
+
+  // --- Fetch helpers ---
+  function fetchCrypto(cb) {
+    fetch("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1&sparkline=false")
+      .then(function(r){ return r.json(); })
+      .then(function(data){ cb(null, data); })
+      .catch(function(e){ cb(e, null); });
+  }
+
+  function fetchStock(symbol, cb) {
+    fetch("https://api.marketdata.app/v1/stocks/quotes/" + symbol + "/")
+      .then(function(r){ return r.json(); })
+      .then(function(data){ cb(null, data); })
+      .catch(function(e){ cb(e, null); });
+  }
+
+  // --- Formatters ---
+  function fmtPrice(n) {
+    if (n === null || n === undefined) return "—";
+    if (n >= 1000) return "$" + Number(n).toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:0});
+    if (n >= 1) return "$" + Number(n).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:4});
+    return "$" + Number(n).toFixed(5);
+  }
+  function fmtPct(n) {
+    if (n === null || n === undefined) return "—";
+    var sign = n >= 0 ? "+" : "";
+    return sign + Number(n).toFixed(2) + "%";
+  }
+  function fmtMcap(n) {
+    if (!n) return "—";
+    if (n >= 1e12) return "$" + (n/1e12).toFixed(2) + "T";
+    if (n >= 1e9) return "$" + (n/1e9).toFixed(1) + "B";
+    if (n >= 1e6) return "$" + (n/1e6).toFixed(1) + "M";
+    return "$" + n;
+  }
+  function changeColor(pct) {
+    if (pct === null || pct === undefined) return "#888";
+    return pct >= 0 ? "#22c55e" : "#ef4444";
+  }
+
+  // --- Row Components ---
+  function CryptoRow(props) {
+    var c = props.coin;
+    var pct = c.price_change_percentage_24h;
+    return h("tr", { style: { borderBottom: "1px solid #2a2a3a" } },
+      h("td", { style: { padding: "8px 6px", textAlign: "center", fontSize: "13px", color: "#888" } }, c.market_cap_rank),
+      h("td", { style: { padding: "8px 6px", display: "flex", alignItems: "center", gap: "8px" } },
+        h("img", { src: c.image, style: { width: "22px", height: "22px", borderRadius: "50%" } }),
+        h("div", null,
+          h("div", { style: { fontSize: "13px", fontWeight: "600", color: "#e2e8f0" } }, c.name),
+          h("div", { style: { fontSize: "11px", color: "#888", textTransform: "uppercase" } }, c.symbol)
+        )
+      ),
+      h("td", { style: { padding: "8px 6px", textAlign: "right", fontSize: "13px", fontWeight: "600", color: "#e2e8f0" } }, fmtPrice(c.current_price)),
+      h("td", { style: { padding: "8px 6px", textAlign: "right", fontSize: "13px", fontWeight: "600", color: changeColor(pct) } }, fmtPct(pct)),
+      h("td", { style: { padding: "8px 6px", textAlign: "right", fontSize: "12px", color: "#94a3b8" } }, fmtMcap(c.market_cap))
+    );
+  }
+
+  function StockRow(props) {
+    var s = props.stock;
+    var info = props.info;
+    var pct = info ? (info.changepct && info.changepct[0] != null ? info.changepct[0] * 100 : null) : null;
+    var price = info ? (info.last && info.last[0]) : null;
+    return h("tr", { style: { borderBottom: "1px solid #2a2a3a" } },
+      h("td", { style: { padding: "8px 6px", textAlign: "center", fontSize: "13px", color: "#888" } }, props.rank),
+      h("td", { style: { padding: "8px 6px" } },
+        h("div", { style: { fontSize: "13px", fontWeight: "600", color: "#e2e8f0" } }, s.name),
+        h("div", { style: { fontSize: "11px", color: "#888" } }, s.symbol)
+      ),
+      h("td", { style: { padding: "8px 6px", textAlign: "right", fontSize: "13px", fontWeight: "600", color: "#e2e8f0" } },
+        info ? fmtPrice(price) : h("span", { style: { color: "#555" } }, "…")
+      ),
+      h("td", { style: { padding: "8px 6px", textAlign: "right", fontSize: "13px", fontWeight: "600", color: changeColor(pct) } },
+        info ? fmtPct(pct) : h("span", { style: { color: "#555" } }, "…")
+      ),
+      h("td", { style: { padding: "8px 6px", textAlign: "right", fontSize: "12px", color: "#94a3b8" } },
+        info && info.volume ? fmtMcap(info.volume[0]) : "—"
+      )
+    );
+  }
+
+  // --- Main App ---
+  function App() {
+    var cs = useAnytypeState({ cryptos: [], stocks: {}, lastUpdated: null, loading: false, error: null });
+    var appState = cs[0], setAppState = cs[1];
+
+    function loadAll() {
+      setAppState(Object.assign({}, appState, { loading: true, error: null }));
+      fetchCrypto(function(err, cryptos) {
+        if (err) { setAppState(function(s){ return Object.assign({}, s, { loading: false, error: "Krypto-Fehler: " + err.message }); }); return; }
+        var stocksMap = {};
+        var done = 0;
+        TOP10_STOCKS.forEach(function(s) {
+          fetchStock(s.symbol, function(serr, data) {
+            done++;
+            if (!serr && data && data.s === "ok") {
+              stocksMap[s.symbol] = data;
+            }
+            if (done === TOP10_STOCKS.length) {
+              setAppState(function(prev) {
+                return Object.assign({}, prev, {
+                  cryptos: cryptos,
+                  stocks: stocksMap,
+                  lastUpdated: new Date().toLocaleTimeString("de-CH"),
+                  loading: false
+                });
+              });
+            }
+          });
+        });
+      });
+    }
+
+    // Auto-load on first mount if no data
+    var mounted = React.useRef(false);
+    React.useEffect(function() {
+      if (!mounted.current) {
+        mounted.current = true;
+        if (!appState.cryptos || appState.cryptos.length === 0) {
+          loadAll();
+        }
+      }
+    }, []);
+
+    var headerStyle = {
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "12px 16px", background: "#12121e", borderBottom: "1px solid #2a2a3a"
+    };
+    var tableHeaderStyle = {
+      background: "#0f0f1a", padding: "6px 6px",
+      fontSize: "11px", color: "#555", textTransform: "uppercase",
+      letterSpacing: "0.05em", textAlign: "right", fontWeight: "600"
+    };
+    var tableHeaderLeftStyle = Object.assign({}, tableHeaderStyle, { textAlign: "left" });
+    var sectionTitleStyle = {
+      padding: "10px 16px 4px", fontSize: "12px", fontWeight: "700",
+      textTransform: "uppercase", letterSpacing: "0.08em", color: "#6366f1"
+    };
+
+    return h("div", { style: { fontFamily: "'Inter', 'SF Pro', system-ui, sans-serif", background: "#0d0d1a", minHeight: "100vh", color: "#e2e8f0", fontSize: "14px" } },
+      // Header
+      h("div", { style: headerStyle },
+        h("div", { style: { display: "flex", alignItems: "center", gap: "10px" } },
+          h("span", { style: { fontSize: "18px" } }, "📈"),
+          h("span", { style: { fontWeight: "700", fontSize: "15px", color: "#e2e8f0" } }, "Markt-Dashboard"),
+          appState.lastUpdated && h("span", { style: { fontSize: "11px", color: "#555", marginLeft: "6px" } }, "Stand: " + appState.lastUpdated)
+        ),
+        h("button", {
+          onClick: loadAll,
+          disabled: appState.loading,
+          style: {
+            background: appState.loading ? "#2a2a3a" : "#6366f1", color: "#fff",
+            border: "none", borderRadius: "6px", padding: "6px 14px",
+            fontSize: "12px", fontWeight: "600", cursor: appState.loading ? "not-allowed" : "pointer"
+          }
+        }, appState.loading ? "⏳ Lädt…" : "🔄 Aktualisieren")
+      ),
+
+      appState.error && h("div", { style: { padding: "10px 16px", background: "#3f1515", color: "#f87171", fontSize: "12px" } }, appState.error),
+
+      // Crypto Section
+      h("div", { style: sectionTitleStyle }, "🔶 Top 10 Kryptowährungen"),
+      h("div", { style: { overflowX: "auto" } },
+        h("table", { style: { width: "100%", borderCollapse: "collapse" } },
+          h("thead", null,
+            h("tr", { style: { background: "#0f0f1a" } },
+              h("th", { style: Object.assign({}, tableHeaderStyle, { textAlign: "center", width: "40px" }) }, "#"),
+              h("th", { style: tableHeaderLeftStyle }, "Coin"),
+              h("th", { style: tableHeaderStyle }, "Preis"),
+              h("th", { style: tableHeaderStyle }, "24h"),
+              h("th", { style: tableHeaderStyle }, "Marktkapitalisierung")
+            )
+          ),
+          h("tbody", null,
+            appState.cryptos && appState.cryptos.length > 0
+              ? appState.cryptos.map(function(coin) { return h(CryptoRow, { key: coin.id, coin: coin }); })
+              : h("tr", null, h("td", { colSpan: 5, style: { textAlign: "center", padding: "30px", color: "#555" } },
+                  appState.loading ? "Lädt…" : "Keine Daten — bitte Aktualisieren drücken"
+                ))
+          )
+        )
+      ),
+
+      // Stocks Section
+      h("div", { style: Object.assign({}, sectionTitleStyle, { marginTop: "12px", color: "#22c55e" }) }, "🏦 Top 10 Aktien (USA)"),
+      h("div", { style: { overflowX: "auto" } },
+        h("table", { style: { width: "100%", borderCollapse: "collapse" } },
+          h("thead", null,
+            h("tr", { style: { background: "#0f0f1a" } },
+              h("th", { style: Object.assign({}, tableHeaderStyle, { textAlign: "center", width: "40px" }) }, "#"),
+              h("th", { style: tableHeaderLeftStyle }, "Aktie"),
+              h("th", { style: tableHeaderStyle }, "Preis"),
+              h("th", { style: tableHeaderStyle }, "24h"),
+              h("th", { style: tableHeaderStyle }, "Volumen")
+            )
+          ),
+          h("tbody", null,
+            TOP10_STOCKS.map(function(s, i) {
+              return h(StockRow, { key: s.symbol, stock: s, info: appState.stocks[s.symbol] || null, rank: i+1 });
+            })
+          )
+        )
+      ),
+
+      // Footer
+      h("div", { style: { padding: "10px 16px", fontSize: "11px", color: "#333", textAlign: "center", borderTop: "1px solid #1a1a2e", marginTop: "12px" } },
+        "Krypto: CoinGecko API (kostenlos) · Aktien: MarketData.app (kostenlos, 15min verzögert)"
+      )
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("app")).render(h(App));
+})();
+</script>

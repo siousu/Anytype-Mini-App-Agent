@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Claude Code local settings (never publish)
+.claude/settings.local.json
+.claude/settings.json
+
+# Editor / OS noise
+*.swp
+*~
+.idea/
+.vscode/
