@@ -389,5 +389,4 @@ Study these when in doubt — they encode the patterns above:
 - `Anytype Mini-Apps/timetracker-mini-app.html` (+ `-en`) — calendar UI,
   `postMessage` deep-links, `localStorage` for per-user prefs.
 
-The clickable-object-links recipe is in §6 above. (The internal reference apps
-that embedded private space data are intentionally not shipped in this repo.)
+The clickable-object-links recipe is in §6 above.
