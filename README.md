@@ -81,8 +81,7 @@ are intentionally **not** included here.
 | `snake-mini-app.html` | Same leaderboard/state pattern, all original code, signatures, DPR canvas + rAF. |
 | `markt-dashboard.html` | `useAnytypeState` + external `fetch` (CoinGecko + MarketData) with loading/error states and auto-load-once. |
 | `synth-sequenzer.html` | A Web-Audio drum sequencer. Vanilla (no synced state), lookahead scheduler, explicit `font-size`. |
-| `prince-mini-app.html` | A platformer ported into an embed. |
-| `timetracker-mini-app.html` / `-en.html` | Weekly-calendar time tracker. `postMessage` deep-links, `localStorage` for per-user prefs. (German + English.) |
+| `timetracker-mini-app-en.html` | Weekly-calendar time tracker. `postMessage` deep-links, `localStorage` for per-user prefs. |
 
 ---
 

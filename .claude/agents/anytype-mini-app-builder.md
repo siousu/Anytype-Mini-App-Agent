@@ -386,7 +386,7 @@ Study these when in doubt — they encode the patterns above:
   step (native `confirm()` is blocked in the sandbox), Web-Audio + confetti.
 - `Anytype Mini-Apps/pixel-place-mini-app.html` — shared canvas via op-log,
   DPR-correct rendering + rAF animation loop, in-app confirm step.
-- `Anytype Mini-Apps/timetracker-mini-app.html` (+ `-en`) — calendar UI,
+- `Anytype Mini-Apps/timetracker-mini-app-en.html` — calendar UI,
   `postMessage` deep-links, `localStorage` for per-user prefs.
 
 The clickable-object-links recipe is in §6 above.
