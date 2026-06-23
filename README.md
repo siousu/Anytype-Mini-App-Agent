@@ -20,17 +20,6 @@ This repo is the skill folder itself:
 
 ---
 
-## Why a skill (and not a sub-agent)?
-
-Building mini-apps is **interactive, knowledge-heavy work** done *with* you in the
-main conversation — iterating on one HTML file, editing live, syntax-checking. A
-**skill** fits that exactly: it's domain knowledge + a procedure that loads when
-relevant and keeps working in the same thread, and it ships its own examples and
-tooling in one folder. A sub-agent — a separate context you delegate a whole task
-to and get a summary back from — would be the wrong shape here.
-
----
-
 ## Using the skill
 
 The skill lives at `.claude/skills/anytype-mini-app-builder/`, the standard
