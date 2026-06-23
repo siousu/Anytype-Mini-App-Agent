@@ -13,9 +13,8 @@ This repo is the skill folder itself:
 
 ```
 .claude/skills/anytype-mini-app-builder/
-├── SKILL.md            # the knowledge: runtime contract, pitfalls, patterns, workflow
-├── examples/           # 7 finished, runnable mini-apps to learn from
-└── scripts/verify.mjs  # syntax-checks every inline <script> block of an app
+├── SKILL.md     # the knowledge: runtime contract, pitfalls, patterns, workflow
+└── examples/    # 7 finished, runnable mini-apps to learn from
 ```
 
 ---
@@ -80,21 +79,6 @@ provided by Anytype and are intentionally **not** included here.
 | `markt-dashboard.html` | `useAnytypeState` + external `fetch` (CoinGecko + MarketData) with loading/error states and auto-load-once. |
 | `synth-sequenzer.html` | A Web-Audio drum sequencer. Vanilla (no synced state), lookahead scheduler, explicit `font-size`. |
 | `timetracker-mini-app-en.html` | Weekly-calendar time tracker. `postMessage` deep-links, `localStorage` for per-user prefs. |
-
----
-
-## Verifying an app
-
-A mini-app can't be truly run outside Anytype, but you can catch syntax errors in
-every inline `<script>` block before pasting it in:
-
-```bash
-cd .claude/skills/anytype-mini-app-builder
-node scripts/verify.mjs examples/team-poll-mini-app.html
-```
-
-It compiles each block without executing it, so missing `React` /
-`useAnytypeState` globals are fine — only real parse errors fail.
 
 ---
 

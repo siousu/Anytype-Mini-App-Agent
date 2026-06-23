@@ -331,14 +331,20 @@ blocks of the same app must coexist, make the LS key per-block.
 
 1. Write the complete single HTML file.
 2. **Syntax-check every inline `<script>` block** with Node before claiming it
-   works. This skill bundles a checker — run it from the skill folder:
+   works — extract each inline block and run `node --check` on it (skip the
+   injected `<script src>` shims). `node --check` only parses, so missing
+   `React`/`useAnytypeState` globals don't matter:
    ```bash
-   node scripts/verify.mjs path/to/app.html
+   python3 - <<'PY'
+   import re, subprocess, tempfile, os, pathlib
+   html = pathlib.Path("app.html").read_text()
+   for i,b in enumerate(re.findall(r"<script>(.*?)</script>", html, re.S)):
+       if not b.strip(): continue
+       f=tempfile.NamedTemporaryFile("w",suffix=".js",delete=False); f.write(b); f.close()
+       r=subprocess.run(["node","--check",f.name],capture_output=True,text=True)
+       print(f"block {i}:", "OK" if r.returncode==0 else r.stderr[:300]); os.unlink(f.name)
+   PY
    ```
-   It parses every inline `<script>` block (skipping the injected `<script src>`
-   shims) and reports any `SyntaxError`. (Equivalent to `node --check` per block;
-   it does not execute the code, so missing `React`/`useAnytypeState` globals are
-   fine.)
 3. **You cannot truly run it inside Anytype from here.** Verify syntax and logic,
    then tell the user to reload the mini-app in Anytype and test — and say plainly
    that you syntax-checked but didn't live-test. Don't over-claim.
