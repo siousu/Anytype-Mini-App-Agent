@@ -229,6 +229,49 @@
   .hint { text-align: center; font-size: 11px; color: #6b7090 !important; -webkit-text-fill-color: #6b7090; }
   ::-webkit-scrollbar { width: 9px; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 6px; }
+
+  /* ---------- name gate (modal overlay) ---------- */
+  .gate {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(8,8,18,.55);
+    backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+    animation: gateIn .25s ease;
+  }
+  @keyframes gateIn { from { opacity: 0; } to { opacity: 1; } }
+  .gate-card {
+    width: 100%; max-width: 360px; text-align: center;
+    background: linear-gradient(180deg, #191926, #14141f);
+    border: 1px solid var(--line); border-radius: 18px;
+    padding: 26px 22px; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    animation: gateCard .28s cubic-bezier(.2,.8,.3,1.1);
+  }
+  @keyframes gateCard { from { transform: translateY(10px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+  .gate-emoji { font-size: 40px; margin-bottom: 10px; }
+  .gate-title { font-size: 18px; font-weight: 800; margin-bottom: 6px;
+    color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8; }
+  .gate-sub { font-size: 13px; line-height: 1.45; margin-bottom: 18px;
+    color: #9aa0b8 !important; -webkit-text-fill-color: #9aa0b8; }
+  .gate-input {
+    width: 100%; text-align: center; background: rgba(0,0,0,.3);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 13px 14px; font-size: 16px; font-weight: 700; font-family: var(--font);
+    outline: none; color: #eef0f8 !important; -webkit-text-fill-color: #eef0f8;
+    margin-bottom: 14px;
+  }
+  .gate-input::placeholder { color: #6b7090; -webkit-text-fill-color: #6b7090; }
+  .gate-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,108,255,.22); }
+  .gate-btn {
+    width: 100%; cursor: pointer; border: none; border-radius: 12px;
+    padding: 13px 16px; font-size: 15px; font-weight: 800; font-family: var(--font);
+    color: #0f0a26 !important; -webkit-text-fill-color: #0f0a26;
+    background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    box-shadow: 0 8px 22px rgba(124,108,255,.4);
+    transition: transform .08s, filter .12s;
+  }
+  .gate-btn:hover { filter: brightness(1.06); }
+  .gate-btn:active { transform: scale(.97); }
+  .gate-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
 </style>
 <div id="app"></div>
 <script>
@@ -340,6 +383,9 @@
     var os = React.useState(["", ""]);        var optDraft = os[0],  setOptDraft = os[1];
     var fs = React.useState(null);            var pulseOpt = fs[0],  setPulseOpt = fs[1];
     var rcs = React.useState(false);          var confirmReset = rcs[0], setConfirmReset = rcs[1];
+    // name gate: must enter a name before voting. Pre-filled/skipped if already known.
+    var nmd = React.useState(!!(loadName() || "").trim());  var named = nmd[0],    setNamed = nmd[1];
+    var gds = React.useState(loadName() || "");             var gateDraft = gds[0], setGateDraft = gds[1];
 
     // identity ref always reflects the current name
     var nameRef = React.useRef((loadName() || "").trim() || "Anonymous");
@@ -419,6 +465,16 @@
       setName(v);
       nameRef.current = v.trim() || "Anonymous";
       saveName(v);
+    }
+
+    // confirm the name from the gate overlay -> unlock voting, show name top-right
+    function confirmName() {
+      var v = (gateDraft || "").trim();
+      if (!v) return;
+      setName(v);
+      nameRef.current = v;
+      saveName(v);
+      setNamed(true);
     }
 
     function openCreate() {
@@ -549,7 +605,29 @@
         )
       : (poll ? null : h("div", { className: "hint" }, "Your name and votes sync live to everyone in this space."));
 
-    return h("div", { className: "wrap" }, header, body, underbar);
+    // ---------- name gate overlay (blocks voting until a name is set) ----------
+    var gate = named ? null : h("div", { className: "gate" },
+      h("div", { className: "gate-card" },
+        h("div", { className: "gate-emoji" }, "🗳️"),
+        h("div", { className: "gate-title" }, "What should we call you?"),
+        h("div", { className: "gate-sub" },
+          "Pop in a name so your vote gets counted. It syncs live with everyone in this space."),
+        h("input", {
+          className: "gate-input", value: gateDraft, autoFocus: true,
+          placeholder: "Your name", maxLength: 24, spellCheck: false,
+          onChange: function (e) { setGateDraft(e.target.value); },
+          onKeyDown: function (e) { if (e.key === "Enter") confirmName(); }
+        }),
+        h("button", {
+          className: "gate-btn", disabled: !(gateDraft || "").trim(), onClick: confirmName
+        }, "OK, let's vote →")
+      )
+    );
+
+    return h(React.Fragment, null,
+      h("div", { className: "wrap" }, header, body, underbar),
+      gate
+    );
   }
 
   ReactDOM.createRoot(document.getElementById("app")).render(h(App));
