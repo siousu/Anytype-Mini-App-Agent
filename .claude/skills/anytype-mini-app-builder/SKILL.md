@@ -1,23 +1,23 @@
 ---
 name: anytype-mini-app-builder
 description: >
-  Use this agent to build, debug, or extend Anytype mini-apps — self-contained
+  Use this skill to build, debug, or extend Anytype mini-apps — self-contained
   single-file HTML widgets that live inside an Anytype page and persist/sync
   state via useAnytypeState. Triggers: "build a mini-app", "Anytype mini-app",
   "make this an Anytype widget", anything involving useAnytypeState, the
   persistent `state` block, clickable Anytype object links from inside an embed,
-  or porting a game/tool into an Anytype embed. It knows the host runtime
+  or porting a game/tool into an Anytype embed. It carries the host runtime
   contract, the CSS/iframe pitfalls, the state-sync patterns, and the build/
   verify workflow.
-tools: Read, Write, Edit, Glob, Grep, Bash, WebFetch, WebSearch
 ---
 
 # Anytype Mini-App Builder
 
-You build **Anytype mini-apps**: single, self-contained HTML files that render
-inside an Anytype page's embed block and can persist + sync state. You know this
-runtime intimately — its contract, its quirks, and the fixes that took real
-debugging to find. Apply that knowledge proactively; don't rediscover it.
+This skill builds **Anytype mini-apps**: single, self-contained HTML files that
+render inside an Anytype page's embed block and can persist + sync state. It
+encodes the runtime intimately — its contract, its quirks, and the fixes that
+took real debugging to find. Apply that knowledge proactively; don't rediscover
+it.
 
 Output is always **one HTML file, no build step.** Everything (markup, CSS, JS,
 and any fonts/audio you embed) lives in that file.
@@ -75,7 +75,7 @@ Both run the same React-18 + `useAnytypeState` runtime; only the wrapper differs
 
 > Note: the server-side authoring API (`miniapp.createMiniApp` /
 > `updateMiniApp` / `getState` / `setState` / `listMiniApps`) belongs to the
-> in-Anytype builder agent ("Bobrik"), not to you. In this workspace you build
+> in-Anytype builder agent ("Bobrik"), not to this skill. Here you build
 > mini-apps by **writing/editing the HTML file directly** — don't reach for that
 > API.
 
@@ -331,19 +331,14 @@ blocks of the same app must coexist, make the LS key per-block.
 
 1. Write the complete single HTML file.
 2. **Syntax-check every inline `<script>` block** with Node before claiming it
-   works:
+   works. This skill bundles a checker — run it from the skill folder:
    ```bash
-   python3 - <<'PY'
-   import re, subprocess, tempfile, os, pathlib
-   html = pathlib.Path("app.html").read_text()
-   for i,b in enumerate(re.findall(r"<script>(.*?)</script>", html, re.S)):
-       if not b.strip(): continue
-       f=tempfile.NamedTemporaryFile("w",suffix=".js",delete=False); f.write(b); f.close()
-       r=subprocess.run(["node","--check",f.name],capture_output=True,text=True)
-       print(f"block {i}:", "OK" if r.returncode==0 else r.stderr[:300]); os.unlink(f.name)
-   PY
+   node scripts/verify.mjs path/to/app.html
    ```
-   (Skip the host shim `<script src>` lines; check only your inline blocks.)
+   It parses every inline `<script>` block (skipping the injected `<script src>`
+   shims) and reports any `SyntaxError`. (Equivalent to `node --check` per block;
+   it does not execute the code, so missing `React`/`useAnytypeState` globals are
+   fine.)
 3. **You cannot truly run it inside Anytype from here.** Verify syntax and logic,
    then tell the user to reload the mini-app in Anytype and test — and say plainly
    that you syntax-checked but didn't live-test. Don't over-claim.
@@ -368,25 +363,26 @@ blocks of the same app must coexist, make the LS key per-block.
 
 ---
 
-## Reference apps in this workspace
+## Reference apps (bundled in `examples/`)
 
 Study these when in doubt — they encode the patterns above:
-- `Anytype Mini-Apps/pacman-mini-app.html` — the deepest example: synced
-  leaderboard via `useAnytypeState`, name+Start UI, signatures + cheat flagging,
-  `goRef` fresh-handler + pending-mirror for instant updates, hardened text
-  colors, focus guard, embedded data-URI font + audio, WTFPL bundling.
-- `Anytype Mini-Apps/snake-mini-app.html` — same leaderboard/state pattern, all
-  original code, signatures, DPR canvas + rAF.
-- `Anytype Mini-Apps/markt-dashboard.html` — `useAnytypeState` + external `fetch`
+- `examples/pacman-mini-app.html` — the deepest example: synced leaderboard via
+  `useAnytypeState`, name+Start UI, signatures + cheat flagging, `goRef`
+  fresh-handler + pending-mirror for instant updates, hardened text colors,
+  focus guard, embedded data-URI font + audio, WTFPL bundling.
+- `examples/snake-mini-app.html` — same leaderboard/state pattern, all original
+  code, signatures, DPR canvas + rAF.
+- `examples/markt-dashboard.html` — `useAnytypeState` + external `fetch`
   (CoinGecko / MarketData) with loading/error and auto-load-once.
-- `Anytype Mini-Apps/synth-sequenzer.html` — vanilla (no state), Web-Audio
-  lookahead scheduler, explicit `font-size`.
-- `Anytype Mini-Apps/team-poll-mini-app.html` — append-only op-log + reducer,
-  `goRef` fresh handlers, pending-mirror for instant updates, in-app confirm
-  step (native `confirm()` is blocked in the sandbox), Web-Audio + confetti.
-- `Anytype Mini-Apps/pixel-place-mini-app.html` — shared canvas via op-log,
-  DPR-correct rendering + rAF animation loop, in-app confirm step.
-- `Anytype Mini-Apps/timetracker-mini-app-en.html` — calendar UI,
-  `postMessage` deep-links, `localStorage` for per-user prefs.
+- `examples/synth-sequenzer.html` — vanilla (no state), Web-Audio lookahead
+  scheduler, explicit `font-size`.
+- `examples/team-poll-mini-app.html` — append-only op-log + reducer, `goRef`
+  fresh handlers, pending-mirror for instant updates, in-app confirm step
+  (native `confirm()` is blocked in the sandbox), name-gate overlay, Web-Audio +
+  confetti.
+- `examples/pixel-place-mini-app.html` — shared canvas via op-log, DPR-correct
+  rendering + rAF animation loop, in-app confirm step.
+- `examples/timetracker-mini-app-en.html` — calendar UI, `postMessage`
+  deep-links, `localStorage` for per-user prefs.
 
 The clickable-object-links recipe is in §6 above.

@@ -1,47 +1,56 @@
-# Anytype Mini-App Agent
+# Anytype Mini-App Skill
 
-A [Claude Code](https://claude.com/claude-code) **agent** for building
+A [Claude Code](https://claude.com/claude-code) **skill** for building
 [Anytype](https://anytype.io) **mini-apps** — plus a gallery of working example
-apps that the agent was distilled from.
+apps that the skill was distilled from.
 
 An *Anytype mini-app* is a single, self-contained HTML file that renders inside
 an Anytype page's embed block. It can persist and live-sync state across every
 member of a space. No build step, no bundler, no dependencies you ship yourself:
 the whole app (markup, CSS, JS, fonts, audio) lives in one file.
 
-This repo contains:
+This repo is the skill folder itself:
 
-- **The agent** — `.claude/agents/anytype-mini-app-builder.md`. It encodes the
-  host runtime contract, the CSS/iframe pitfalls, the state-sync patterns, the
-  sandbox limits, and the build/verify workflow that took real debugging to find.
-- **A gallery of mini-apps** — `Anytype Mini-Apps/`. Each one is a finished,
-  runnable example demonstrating a specific slice of the runtime.
+```
+.claude/skills/anytype-mini-app-builder/
+├── SKILL.md            # the knowledge: runtime contract, pitfalls, patterns, workflow
+├── examples/           # 7 finished, runnable mini-apps to learn from
+└── scripts/verify.mjs  # syntax-checks every inline <script> block of an app
+```
 
 ---
 
-## Using the agent
+## Why a skill (and not a sub-agent)?
 
-The agent lives at `.claude/agents/anytype-mini-app-builder.md`, the standard
-location Claude Code reads sub-agents from. Two ways to use it:
+Building mini-apps is **interactive, knowledge-heavy work** done *with* you in the
+main conversation — iterating on one HTML file, editing live, syntax-checking. A
+**skill** fits that exactly: it's domain knowledge + a procedure that loads when
+relevant and keeps working in the same thread, and it ships its own examples and
+tooling in one folder. A sub-agent — a separate context you delegate a whole task
+to and get a summary back from — would be the wrong shape here.
 
-1. **Open this repo as your project** in Claude Code (or any tool that supports
-   the Claude Agent SDK). The agent is auto-registered on session start.
-2. **Copy** `.claude/agents/anytype-mini-app-builder.md` into the `.claude/agents/`
-   folder of an existing project.
+---
+
+## Using the skill
+
+The skill lives at `.claude/skills/anytype-mini-app-builder/`, the standard
+location Claude Code reads skills from. Two ways to use it:
+
+1. **Open this repo as your project** in Claude Code. The skill is discovered
+   automatically.
+2. **Copy** the `.claude/skills/anytype-mini-app-builder/` folder into another
+   project's `.claude/skills/` (or your personal `~/.claude/skills/`).
 
 Then just ask, e.g. *"build an Anytype mini-app that …"*, *"make this a synced
-Anytype widget"*, or *"port this game into an Anytype embed"*. The agent triggers
+Anytype widget"*, or *"port this game into an Anytype embed"*. The skill loads
 on anything involving `useAnytypeState`, the persistent `state` block, clickable
 Anytype object links, or porting a tool/game into an embed.
 
-> Sub-agents are registered when a session starts, so add the file before
-> launching Claude Code (or restart the session after copying it in).
-
 ---
 
-## What the agent knows
+## What the skill knows
 
-The agent file is the source of truth; this is the table of contents:
+`SKILL.md` is the source of truth; this is its table of contents:
 
 1. **The runtime contract** — the iframe wrapper injects three host scripts
    (`react.js`, `react-dom.js`, `useAnytypeState.js`) and mounts into `#app`.
@@ -68,20 +77,35 @@ The agent file is the source of truth; this is the table of contents:
 
 ## The mini-app gallery
 
-All apps live in `Anytype Mini-Apps/`. Each is a single HTML file — drop it into
-an Anytype mini-app block to run it. The three injected runtime scripts
-(`react.js`, `react-dom.js`, `useAnytypeState.js`) are provided by Anytype and
-are intentionally **not** included here.
+All apps live in `.claude/skills/anytype-mini-app-builder/examples/`. Each is a
+single HTML file — drop it into an Anytype mini-app block to run it. The three
+injected runtime scripts (`react.js`, `react-dom.js`, `useAnytypeState.js`) are
+provided by Anytype and are intentionally **not** included here.
 
 | App | What it demonstrates |
 |-----|----------------------|
-| `team-poll-mini-app.html` | Live synced voting. Append-only op-log + reducer, fresh-handler refs, pending-mirror for instant updates, in-app confirm (native `confirm()` is blocked), Web-Audio feedback + confetti. |
+| `team-poll-mini-app.html` | Live synced voting. Append-only op-log + reducer, fresh-handler refs, pending-mirror for instant updates, a name-gate overlay, in-app confirm (native `confirm()` is blocked), Web-Audio feedback + confetti. |
 | `pixel-place-mini-app.html` | A shared pixel canvas that syncs live. Op-log state, DPR-correct canvas rendering, `requestAnimationFrame` animation loop, PNG export, in-app confirm. |
 | `pacman-mini-app.html` | The deepest example: synced leaderboard via `useAnytypeState`, name + Start UI, tamper-evidence signatures, `goRef` fresh handlers + pending-mirror, hardened text colors, focus guard, embedded data-URI font + audio. |
 | `snake-mini-app.html` | Same leaderboard/state pattern, all original code, signatures, DPR canvas + rAF. |
 | `markt-dashboard.html` | `useAnytypeState` + external `fetch` (CoinGecko + MarketData) with loading/error states and auto-load-once. |
 | `synth-sequenzer.html` | A Web-Audio drum sequencer. Vanilla (no synced state), lookahead scheduler, explicit `font-size`. |
 | `timetracker-mini-app-en.html` | Weekly-calendar time tracker. `postMessage` deep-links, `localStorage` for per-user prefs. |
+
+---
+
+## Verifying an app
+
+A mini-app can't be truly run outside Anytype, but you can catch syntax errors in
+every inline `<script>` block before pasting it in:
+
+```bash
+cd .claude/skills/anytype-mini-app-builder
+node scripts/verify.mjs examples/team-poll-mini-app.html
+```
+
+It compiles each block without executing it, so missing `React` /
+`useAnytypeState` globals are fine — only real parse errors fail.
 
 ---
 
@@ -108,7 +132,7 @@ are intentionally **not** included here.
 </script>
 ```
 
-See the agent file for the full contract, the patterns, and the gotchas.
+See `SKILL.md` for the full contract, the patterns, and the gotchas.
 
 ---
 
